@@ -3,10 +3,11 @@ import XCTest
 
 final class ESCPOS_ThermalPrinter_IOSTests: XCTestCase {
     func testGetRegexAlingTags() throws {
-        let source = "[C]Center\n[L]<b class=\"align left\">Left</b>[R]Right"
+        let source = "[C]Center\n[L]<b string=\"align left\" bolean=true>Left</b>[R]Right"
         var lexer = Lexer(source: source)
         lexer.tokenize()
-        print("Plain text:\n\(lexer.plainText())")
+        print("Source:\n\(source)")
+        print("\nPlain text:\n\(lexer.plainText())")
         let tokens = lexer.tokens
         print("\nTokens:")
         for token in tokens {

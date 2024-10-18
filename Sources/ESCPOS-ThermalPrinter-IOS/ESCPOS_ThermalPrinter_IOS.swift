@@ -20,6 +20,8 @@ extension String {
 
 enum TokenKind {
     case TEXT
+    case STRING
+    case CONSTANT
     case TAG
     case ATTRIBUTE
 
@@ -50,8 +52,9 @@ struct Lexer {
         self.lines = source.split(separator: "\n").map { String($0) }
     }
 
-    mutating func push(_ type: TokenKind, _ value: String) {
+    mutating func push(_ type: TokenKind, _ value: String, _ walk: Int = 1) {
         self.tokens.append(Token(type: type, value: value))
+        atCol += walk
     }
 
     func plainText() -> String {
@@ -87,58 +90,94 @@ struct Lexer {
 
     mutating func parseAlignment() {
         if(getActChar() == "[" && getActChar(2) == "]") {
-            self.push(.ALIGNMENT, getActChar(1))
-            atCol += 3
+            self.push(.ALIGNMENT, getActChar(1), 3)
+        }
+    }
+
+    mutating func parseString() {
+        var text = ""
+        if(getActChar() != "\"") {
+            return
+        }
+        atCol += 1
+        var actChar = getActChar()
+        while(actChar != "\"" && actChar != "") {
+            text.append(actChar)
+            atCol += 1
+            actChar = getActChar()
+        }
+        self.push(.STRING, text)
+    }
+
+    mutating func parseAttribute() {
+        var attr = ""
+        var actChar = getActChar()
+        while(actChar != "=" && actChar != ">" && actChar != " " && actChar != "") {
+            attr.append(actChar)
+            atCol += 1
+            actChar = getActChar()
+        }
+        switch(self.tokens.last?.type) {
+            case .ATTRIBUTE, .CONSTANT, .TAG:
+                self.push(.ATTRIBUTE, attr, 0)
+            case .ASSIGNMENT:
+                self.push(.CONSTANT, attr, 0)
+            default:
+                self.push(.TAG, attr, 0)
+        }
+    }
+
+    mutating func parseTag() {
+        self.push(.OPEN_TAG, "")
+        if(getActChar() == "/") {
+            self.push(.BACKSLASH, "")
+        }
+        var actChar = getActChar()
+        while(actChar != ">" && actChar != "") {
+            switch(actChar) {
+                case " ":
+                    atCol += 1
+                case "=":
+                    self.push(.ASSIGNMENT, "")
+                case "\"":
+                    self.parseString()
+                default:
+                    self.parseAttribute()
+            }
+            actChar = getActChar()
+        }
+        self.push(.CLOSE_TAG, "")
+    }
+
+    mutating func parseText() {
+        var text = ""
+        var actChar = getActChar()
+        while(actChar != "[" && actChar != "<" && actChar != "") {
+            text.append(actChar)
+            atCol += 1
+            actChar = getActChar()
+        }
+        if(text != "") {
+            self.push(.TEXT, text, 0)
         }
     }
 
     mutating func tokenize() {
-        for (index, line) in lines.enumerated() {
+        for (index, _) in lines.enumerated() {
             atCol = 0
-            while( atCol < line.count ) {
-                if(line[atCol] == "[") {
+            while(getActChar() != "") {
+                switch(getActChar()) {
+                case "[":
                     parseAlignment()
-                    continue
+                case "<":
+                    parseTag()
+                default:
+                    parseText()
                 }
-                if(line[atCol] == "<") {
-                    self.push(.OPEN_TAG, "")
-                    atCol += 1
-                    if(line[atCol] == "/") {
-                        self.push(.BACKSLASH, "")
-                        atCol += 1
-                    }
-                    while(line[atCol] != ">" && atCol < line.count) {
-                        if(line[atCol] == " ") {
-                            atCol += 1
-                            continue
-                        }
-                        if(line[atCol] == "=") {
-                            self.push(.ASSIGNMENT, "")
-                            atCol += 1
-                            continue
-                        }
-                        var attr = ""
-                        while(line[atCol] != "=" && line[atCol] != ">" && line[atCol] != " " && atCol < line.count) {
-                            attr.append(line[atCol])
-                            atCol += 1
-                        }
-                        self.push(.ATTRIBUTE, attr)
-                    }
-                    self.push(.CLOSE_TAG, "")
-                    atCol += 1
-                    continue
-                }
-                var text = ""
-                while((line[atCol] != "[" && line[atCol + 2] != "]") && line[atCol] != "<" && atCol < line.count) {
-                    text.append(line[atCol])
-                    atCol += 1
-                }
-                self.push(.TEXT, text)
             }
-
             if(index != lines.count - 1) {
                 atLine += 1
-                self.push(.LINE_BREAK, "")
+                self.push(.LINE_BREAK, "", 0)
             }
         }
     }
