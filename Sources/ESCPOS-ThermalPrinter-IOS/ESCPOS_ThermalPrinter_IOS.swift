@@ -37,8 +37,18 @@ struct Token {
     let type: TokenKind
     let value: String
 
+    init(type: TokenKind, value: String = "") {
+        self.type = type
+        self.value = value
+    }
+
     func debug() {
         print("\(type) (\(value))")
+    }
+}
+extension Token: Equatable {
+    static func == (lhs: Token, rhs: Token) -> Bool {
+        return lhs.type == rhs.type && lhs.value == rhs.value
     }
 }
 
@@ -118,12 +128,12 @@ struct Lexer {
             actChar = getActChar()
         }
         switch(self.tokens.last?.type) {
-            case .ATTRIBUTE, .CONSTANT, .TAG:
-                self.push(.ATTRIBUTE, attr, 0)
+            case .OPEN_TAG, .BACKSLASH:
+                self.push(.TAG, attr, 0)
             case .ASSIGNMENT:
                 self.push(.CONSTANT, attr, 0)
             default:
-                self.push(.TAG, attr, 0)
+                self.push(.ATTRIBUTE, attr, 0)
         }
     }
 
