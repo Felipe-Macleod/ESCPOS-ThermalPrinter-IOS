@@ -24,6 +24,7 @@ enum TokenKind {
     case CONSTANT
     case TAG
     case ATTRIBUTE
+    case NONE
 
     case OPEN_TAG
     case CLOSE_TAG
@@ -104,14 +105,14 @@ struct Lexer {
         }
     }
 
-    mutating func parseString() {
+    mutating func parseString(quote: String = "\"") {
         var text = ""
-        if(getActChar() != "\"") {
+        if(getActChar() != quote) {
             return
         }
         atCol += 1
         var actChar = getActChar()
-        while(actChar != "\"" && actChar != "") {
+        while(actChar != quote && actChar != "") {
             text.append(actChar)
             atCol += 1
             actChar = getActChar()
@@ -149,8 +150,8 @@ struct Lexer {
                     atCol += 1
                 case "=":
                     self.push(.ASSIGNMENT, "")
-                case "\"":
-                    self.parseString()
+                case "\"", "'":
+                    self.parseString(quote: actChar)
                 default:
                     self.parseAttribute()
             }
